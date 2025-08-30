@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Local Counter</title>
+  <meta name="description" content="Count how many times a thing has happened. All data is stored in your browser (localStorage)." />
+  <style>
+    :root{
+      --bg: #0f172a; /* slate-900 */
+      --card: #111827; /* gray-900 */
+      --muted: #94a3b8; /* slate-400 */
+      --text: #e5e7eb; /* gray-200 */
+      --accent: #22c55e; /* green-500 */
+      --accent-2: #3b82f6; /* blue-500 */
+      --danger: #ef4444; /* red-500 */
+      --shadow: 0 8px 24px rgba(0,0,0,.35);
+      --radius: 16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1600px 800px at 10% -10%, #1f2937, transparent),
+                  radial-gradient(1400px 700px at 110% -10%, #0b1220, transparent),
+                  var(--bg);
+      color: var(--text);
+    }
+    header{
+      padding: 24px 20px; max-width: 1000px; margin: 0 auto;
+      display:flex; align-items:center; gap:16px; justify-content:space-between; flex-wrap:wrap;
+    }
+    .title{ font-size: clamp(24px, 3vw, 32px); font-weight: 800; letter-spacing: .5px; }
+    .subtitle{ color: var(--muted); font-size: 14px; }
+    main{ max-width:1000px; margin:0 auto; padding: 0 20px 32px; }
+
+    .bar{ display:flex; gap:12px; align-items:end; flex-wrap:wrap; }
+    .field{ display:flex; flex-direction:column; gap:6px; }
+    label{ font-size:12px; color: var(--muted); }
+    input[type="text"], input[type="number"]{
+      background:#0b1020; border:1px solid #1f2937; color:var(--text);
+      border-radius:10px; padding:12px 14px; min-width: 180px; box-shadow: var(--shadow);
+    }
+    input[type="number"]{ min-width:120px; }
+    .btn{
+      appearance:none; border:none; cursor:pointer; color:white; font-weight:700;
+      padding:12px 16px; border-radius: 12px; box-shadow: var(--shadow);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.1)), #1f2937;
+      transition: transform .04s ease, filter .2s ease, opacity .2s ease;
+    }
+    .btn:hover{ filter: brightness(1.15); }
+    .btn:active{ transform: translateY(1px) scale(.98); }
+    .btn.primary{ background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.12)), var(--accent-2); }
+    .btn.success{ background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.12)), var(--accent); }
+    .btn.danger{ background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.12)), var(--danger); }
+
+    .toolbar{ margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
+
+    .grid{ display:grid; gap:16px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); margin-top: 18px; }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.18)), var(--card);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius);
+      padding: 14px; box-shadow: var(--shadow);
+      display:flex; flex-direction:column; gap:12px; min-height: 170px;
+    }
+    .card header{ padding:0; margin:0; max-width:unset; justify-content:space-between }
+    .name{ font-weight: 800; letter-spacing:.4px }
+    .count{ font-size: 48px; font-weight: 900; text-align:center; line-height:1; }
+
+    .row{ display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+    .btn.small{ padding:8px 10px; border-radius:10px; font-weight:800; }
+    .btn.block{ width:100%; }
+    .ghost{ background:rgba(255,255,255,.06); }
+
+    .footer{ color:var(--muted); font-size:12px; text-align:center; margin-top:24px }
+    .hidden{ display:none; }
+    .nowrap{ white-space:nowrap }
+
+    /* Accessible focus */
+    :focus-visible{ outline: 2px solid #93c5fd; outline-offset: 2px; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="title">Local Counter</div>
+      <div class="subtitle">Count anything. Your data never leaves this browser.</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="bar" aria-label="Add a counter">
+      <div class="field">
+        <label for="name">Thing to count</label>
+        <input id="name" type="text" placeholder="e.g., Cups of water" />
+      </div>
+      <div class="field">
+        <label for="start">Start at</label>
+        <input id="start" type="number" inputmode="numeric" value="0" />
+      </div>
+      <button id="addBtn" class="btn success" type="button" aria-label="Add counter">➕ Add Counter</button>
+      <div class="toolbar">
+        <button id="backupBtn" class="btn" type="button" aria-label="Download backup">⬇️ Backup</button>
+        <label class="btn ghost nowrap" for="restoreFile" title="Restore from backup JSON" aria-label="Restore from backup">⬆️ Restore
+          <input id="restoreFile" type="file" accept="application/json" class="hidden" />
+        </label>
+        <button id="clearAllBtn" class="btn danger" type="button" aria-label="Delete all counters">🗑️ Clear All</button>
+      </div>
+    </section>
+
+    <section class="grid" id="grid" aria-live="polite" aria-busy="false"></section>
+
+    <p class="footer">Tip: Click a number to +1. Use +/- keys when a card is focused. Data is saved in <code>localStorage</code>.</p>
+  </main>
+
+  <script>
+  (function(){
+    const STORAGE_KEY = 'local-counter:v1';
+
+    /** @type {Map<string,{id:string,name:string,value:number,created:number,updated:number}>} */
+    let counters = new Map();
+
+    const grid = document.getElementById('grid');
+    const nameInput = document.getElementById('name');
+    const startInput = document.getElementById('start');
+    const addBtn = document.getElementById('addBtn');
+    const backupBtn = document.getElementById('backupBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const restoreFile = document.getElementById('restoreFile');
+
+    function uid(){
+      if (window.crypto?.randomUUID) return crypto.randomUUID();
+      return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8);
+    }
+
+    function load(){
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw) return;
+        const obj = JSON.parse(raw);
+        if (Array.isArray(obj)) {
+          obj.forEach(o => counters.set(o.id, o));
+        } else if (obj && obj.counters) {
+          obj.counters.forEach(o => counters.set(o.id, o));
+        }
+      } catch(e){ console.warn('Load failed', e); }
+    }
+
+    function save(){
+      const list = Array.from(counters.values()).sort((a,b)=>a.created-b.created);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    }
+
+    function sanitizeName(s){
+      return (s||'').trim().replace(/\s+/g,' ').slice(0,80);
+    }
+
+    function ensureUniqueName(name){
+      const taken = new Set(Array.from(counters.values()).map(c=>c.name.toLowerCase()));
+      if(!taken.has(name.toLowerCase())) return name;
+      let i = 2;
+      while(taken.has((name + ' ' + i).toLowerCase())) i++;
+      return name + ' ' + i;
+    }
+
+    function addCounter(name, start=0){
+      name = sanitizeName(name) || 'Untitled';
+      name = ensureUniqueName(name);
+      const now = Date.now();
+      const c = { id: uid(), name, value: Number(start)||0, created: now, updated: now };
+      counters.set(c.id, c);
+      save();
+      render();
+      focusCard(c.id);
+    }
+
+    function delCounter(id){
+      counters.delete(id); save(); render();
+    }
+
+    function updateValue(id, delta){
+      const c = counters.get(id); if(!c) return;
+      c.value = (c.value||0) + delta; c.updated = Date.now();
+      counters.set(id, c); save(); updateCard(id, c);
+    }
+
+    function setValue(id, value){
+      const c = counters.get(id); if(!c) return; c.value = Number(value)||0; c.updated = Date.now();
+      counters.set(id, c); save(); updateCard(id, c);
+    }
+
+    function rename(id, name){
+      const c = counters.get(id); if(!c) return; c.name = sanitizeName(name)||'Untitled'; c.updated = Date.now();
+      counters.set(id, c); save(); updateCard(id, c);
+    }
+
+    function nfmt(n){
+      return new Intl.NumberFormat(navigator.language, { maximumFractionDigits:0 }).format(n);
+    }
+
+    function cardTemplate(c){
+      return `
+        <article class="card" role="group" aria-label="Counter ${escapeHtml(c.name)}" tabindex="0" data-id="${c.id}">
+          <header class="row">
+            <input class="name" value="${escapeAttr(c.name)}" aria-label="Counter name" />
+            <div class="row" style="gap:6px">
+              <button class="btn small ghost" data-action="reset" title="Reset to 0" aria-label="Reset">↺</button>
+              <button class="btn small danger" data-action="delete" title="Delete counter" aria-label="Delete">✖</button>
+            </div>
+          </header>
+
+          <div class="count" data-action="plus1" title="Click to +1">${nfmt(c.value||0)}</div>
+
+          <div class="row">
+            <button class="btn small" data-action="minus1" aria-label="Minus one">−1</button>
+            <button class="btn small" data-action="plus1" aria-label="Plus one">+1</button>
+            <button class="btn small" data-action="plus5" aria-label="Plus five">+5</button>
+            <input class="direct" type="number" inputmode="numeric" value="${c.value||0}" aria-label="Set exact value" style="flex:1; padding:8px 10px; border-radius:10px; border:1px solid #1f2937; background:#0b1020; color:var(--text)" />
+          </div>
+        </article>`
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+    }
+    function escapeAttr(s){
+      return String(s).replace(/["&<>]/g, ch => ({'"':'&quot;','&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+    }
+
+    function render(){
+      grid.setAttribute('aria-busy', 'true');
+      const list = Array.from(counters.values()).sort((a,b)=> a.created - b.created);
+      grid.innerHTML = list.map(cardTemplate).join('');
+      grid.setAttribute('aria-busy', 'false');
+    }
+
+    function updateCard(id, c){
+      const card = grid.querySelector(`[data-id="${CSS.escape(id)}"]`);
+      if(!card) return render();
+      // Update count text and input
+      const countEl = card.querySelector('.count');
+      countEl.textContent = nfmt(c.value||0);
+      const input = card.querySelector('input.direct');
+      input.value = c.value||0;
+    }
+
+    function focusCard(id){
+      const card = grid.querySelector(`[data-id="${CSS.escape(id)}"]`);
+      if(card) card.focus();
+    }
+
+    // Event delegation for card actions
+    grid.addEventListener('click', (e)=>{
+      const card = e.target.closest('.card'); if(!card) return;
+      const id = card.dataset.id; if(!id) return;
+      const actionEl = e.target.closest('[data-action]');
+      const action = actionEl?.dataset?.action;
+      if(action === 'plus1') updateValue(id, +1);
+      else if(action === 'minus1') updateValue(id, -1);
+      else if(action === 'plus5') updateValue(id, +5);
+      else if(action === 'reset') setValue(id, 0);
+      else if(action === 'delete'){
+        if(confirm('Delete this counter?')) delCounter(id);
+      }
+    });
+
+    grid.addEventListener('dblclick', (e)=>{
+      const count = e.target.closest('.count');
+      const card = e.target.closest('.card');
+      if(count && card) updateValue(card.dataset.id, +1);
+    });
+
+    // Keyboard controls when card focused
+    grid.addEventListener('keydown', (e)=>{
+      const card = e.target.closest('.card') || document.activeElement.closest?.('.card');
+      if(!card) return;
+      const id = card.dataset.id;
+      if(e.key === '+'){ updateValue(id, +1); e.preventDefault(); }
+      if(e.key === '='){ updateValue(id, +1); e.preventDefault(); }
+      if(e.key === '-') { updateValue(id, -1); e.preventDefault(); }
+      if(e.key.toLowerCase() === 'r'){ setValue(id, 0); e.preventDefault(); }
+      if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='d'){ delCounter(id); e.preventDefault(); }
+    });
+
+    // Direct value input + rename
+    grid.addEventListener('change', (e)=>{
+      const card = e.target.closest('.card'); if(!card) return;
+      const id = card.dataset.id;
+      if(e.target.matches('input.direct')){
+        setValue(id, e.target.value);
+      }
+      if(e.target.matches('input.name')){
+        rename(id, e.target.value);
+      }
+    });
+
+    // Add new counter
+    addBtn.addEventListener('click', ()=>{
+      addCounter(nameInput.value, Number(startInput.value)||0);
+      nameInput.value = '';
+      startInput.value = 0;
+      nameInput.focus();
+    });
+
+    nameInput.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){ addBtn.click(); }
+    });
+    startInput.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){ addBtn.click(); }
+    });
+
+    // Backup
+    backupBtn.addEventListener('click', ()=>{
+      const data = Array.from(counters.values());
+      const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), counters: data }, null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'local-counter-backup.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+    });
+
+    // Restore
+    restoreFile.addEventListener('change', async (e)=>{
+      const f = e.target.files?.[0]; if(!f) return;
+      try {
+        const text = await f.text();
+        const obj = JSON.parse(text);
+        const list = Array.isArray(obj) ? obj : (obj?.counters || []);
+        if(!Array.isArray(list)) throw new Error('Invalid file');
+        // Merge by id; if id clash, new id
+        list.forEach(o=>{
+          if(!o || typeof o !== 'object') return;
+          let id = o.id || uid();
+          if(counters.has(id)) id = uid();
+          counters.set(id, { id, name: sanitizeName(o.name)||'Untitled', value: Number(o.value)||0, created: Number(o.created)||Date.now(), updated: Date.now() });
+        });
+        save(); render();
+      } catch(err){
+        alert('Could not restore: ' + (err?.message||err));
+      } finally {
+        restoreFile.value = '';
+      }
+    });
+
+    // Clear all
+    clearAllBtn.addEventListener('click', ()=>{
+      if(confirm('This will delete all counters stored in this browser. Continue?')){
+        counters.clear(); save(); render();
+      }
+    });
+
+    // Init
+    load();
+    if(counters.size===0){
+      addCounter('Sample', 0);
+    } else {
+      render();
+    }
+  })();
+  </script>
+</body>
+</html>
