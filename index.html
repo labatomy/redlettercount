@@ -1,215 +1,157 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Local Counter</title>
-  <meta name="description" content="Count how many times a thing has happened. All data is stored in your browser (localStorage)." />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>3 Counters</title>
   <style>
-    :root{
-      --bg: #0f172a;
-      --card: #111827;
-      --muted: #94a3b8;
-      --text: #e5e7eb;
-      --accent: #22c55e;
-      --accent-2: #3b82f6;
-      --danger: #ef4444;
-      --shadow: 0 8px 24px rgba(0,0,0,.35);
-      --radius: 16px;
+    body {
+      font-family: sans-serif; background: #0f172a; color: #e5e7eb;
+      margin: 0; padding: 20px;
     }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-      background: var(--bg);
-      color: var(--text);
+    h1 { margin-bottom: 10px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .card {
+      background: #111827; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
     }
-    header{
-      padding: 24px 20px; max-width: 1000px; margin: 0 auto;
-      display:flex; align-items:center; gap:16px; justify-content:space-between; flex-wrap:wrap;
+    .name { font-weight: bold; font-size: 18px; }
+    .count { font-size: 42px; font-weight: bold; cursor: pointer; }
+    .row { display: flex; gap: 8px; }
+    button {
+      padding: 6px 10px; border: none; border-radius: 8px;
+      cursor: pointer; font-weight: bold; background: #3b82f6; color: white;
     }
-    .title{ font-size: clamp(24px, 3vw, 32px); font-weight: 800; letter-spacing: .5px; }
-    .subtitle{ color: var(--muted); font-size: 14px; }
-    main{ max-width:1000px; margin:0 auto; padding: 0 20px 32px; }
-
-    .btn{
-      appearance:none; border:none; cursor:pointer; color:white; font-weight:700;
-      padding:8px 12px; border-radius: 10px; box-shadow: var(--shadow);
-      background: var(--accent-2);
-      transition: transform .04s ease, filter .2s ease;
-    }
-    .btn:hover{ filter: brightness(1.15); }
-    .btn:active{ transform: translateY(1px) scale(.98); }
-    .btn.small{ padding:6px 8px; font-size:14px; }
-    .btn.danger{ background: var(--danger); }
-    .btn.ghost{ background: rgba(255,255,255,.1); }
-
-    .grid{ display:grid; gap:16px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); margin-top: 18px; }
-    .card{
-      background: var(--card);
-      border: 1px solid rgba(255,255,255,.06);
-      border-radius: var(--radius);
-      padding: 14px; box-shadow: var(--shadow);
-      display:flex; flex-direction:column; gap:12px; min-height: 170px;
-    }
-    .name{ font-weight: 800; letter-spacing:.4px; font-size:18px; text-align:center; }
-    .count{ font-size: 48px; font-weight: 900; text-align:center; line-height:1; cursor:pointer; }
-    .row{ display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
-    .toolbar{ margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
-    .footer{ color:var(--muted); font-size:12px; text-align:center; margin-top:24px }
-    .hidden{ display:none; }
+    button:hover { filter: brightness(1.15); }
+    .danger { background: #ef4444; }
+    .tools { margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap; }
+    input[type="file"] { display: none; }
   </style>
 </head>
 <body>
-  <header>
-    <div>
-      <div class="title">Local Counter</div>
-      <div class="subtitle">Count anything. Your data never leaves this browser.</div>
-    </div>
-  </header>
+  <h1>Red Letter Count</h1>
+  <div class="grid" id="grid"></div>
 
-  <main>
-    <section class="toolbar">
-      <button id="backupBtn" class="btn ghost" type="button">⬇️ Backup</button>
-      <label class="btn ghost" for="restoreFile">⬆️ Restore
-        <input id="restoreFile" type="file" accept="application/json" class="hidden" />
-      </label>
-      <button id="clearAllBtn" class="btn danger" type="button">🗑️ Clear All</button>
-    </section>
-
-    <section class="grid" id="grid" aria-live="polite" aria-busy="false"></section>
-    <p class="footer">Click the number to +1. Use +/- keys when a card is focused. Data is saved in <code>localStorage</code>.</p>
-  </main>
+  <div class="tools">
+    <button id="save">Save to File</button>
+    <label for="restoreFile" class="button"><button id="restoreBtn">Restore from File</button></label>
+    <input type="file" id="restoreFile" accept="application/json"/>
+    <button class="danger" id="clear">Clear</button>
+  </div>
 
   <script>
-  (function(){
-    const STORAGE_KEY = 'local-counter:v1';
-    const grid = document.getElementById('grid');
-    const backupBtn = document.getElementById('backupBtn');
-    const clearAllBtn = document.getElementById('clearAllBtn');
-    const restoreFile = document.getElementById('restoreFile');
+    (function() {
+      const STORAGE_KEY = "three-counters:v1";
+      const defaults = [
+        { id: "c1", name: "Jesus", value: 0 },
+        { id: "c2", name: "Paul", value: 0 },
+        { id: "c3", name: "Old Testament", value: 0 }
+      ];
+      let counters = new Map();
 
-    const defaults = [
-      { id: 'c1', name: 'Counter One', value: 1 },
-      { id: 'c2', name: 'Counter Two', value: 1 },
-      { id: 'c3', name: 'Counter Three', value: 1 },
-      { id: 'c4', name: 'Counter Four', value: 1 }
-    ];
+      const grid = document.getElementById("grid");
+      const fileInput = document.getElementById("restoreFile");
 
-    let counters = new Map();
-
-    function load(){
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if(!raw){
+      function load() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) {
+            defaults.forEach(c => counters.set(c.id, {...c}));
+            return;
+          }
+          JSON.parse(raw).forEach(o => counters.set(o.id, o));
+        } catch {
           defaults.forEach(c => counters.set(c.id, {...c}));
-          return;
         }
-        const obj = JSON.parse(raw);
-        if (Array.isArray(obj)) {
-          obj.forEach(o => counters.set(o.id, o));
-        }
-      } catch(e){
-        defaults.forEach(c => counters.set(c.id, {...c}));
       }
-    }
 
-    function save(){
-      const list = Array.from(counters.values());
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    }
+      function saveLocal() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(counters.values())));
+      }
 
-    function nfmt(n){
-      return new Intl.NumberFormat(navigator.language, { maximumFractionDigits:0 }).format(n);
-    }
-
-    function cardTemplate(c){
-      return `
-        <article class="card" role="group" tabindex="0" data-id="${c.id}">
-          <div class="name">${c.name}</div>
-          <div class="count" data-action="plus1">${nfmt(c.value||1)}</div>
-          <div class="row">
-            <button class="btn small" data-action="minus1">−1</button>
-            <button class="btn small" data-action="plus1">+1</button>
+      function render() {
+        grid.innerHTML = Array.from(counters.values()).map(c => `
+          <div class="card" data-id="${c.id}">
+            <div class="name">${c.name}</div>
+            <div class="count">${c.value}</div>
+            <div class="row">
+              <button data-action="plus">+1</button>
+              <button class="danger" data-action="reset">Reset</button>
+            </div>
           </div>
-        </article>`
-    }
+        `).join("");
+      }
 
-    function render(){
-      const list = Array.from(counters.values());
-      grid.innerHTML = list.map(cardTemplate).join('');
-    }
+      function update(id, action) {
+        const c = counters.get(id);
+        if (!c) return;
+        if (action === "plus") c.value++;
+        if (action === "minus" && c.value > 0) c.value--;
+        if (action === "reset") c.value = 0;
+        counters.set(id, c);
+        saveLocal();
+        render();
+      }
 
-    function updateValue(id, delta){
-      const c = counters.get(id); if(!c) return;
-      const newVal = (c.value||1) + delta;
-      if(newVal < 1) return; // prevent going to zero or negative
-      c.value = newVal;
-      counters.set(id, c);
-      save();
+      grid.addEventListener("click", e => {
+        const btn = e.target.closest("button");
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const card = e.target.closest(".card");
+        if (!card) return;
+        update(card.dataset.id, action);
+      });
+
+      // Save to file
+      document.getElementById("save").onclick = () => {
+        const data = JSON.stringify(Array.from(counters.values()), null, 2);
+        const blob = new Blob([data], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "counters.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      // Restore from file
+      document.getElementById("restoreBtn").onclick = () => {
+        fileInput.click();
+      };
+      fileInput.addEventListener("change", e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          try {
+            const obj = JSON.parse(ev.target.result);
+            if (Array.isArray(obj)) {
+              counters.clear();
+              obj.forEach(o => counters.set(o.id, o));
+              saveLocal();
+              render();
+            }
+          } catch(err) {
+            alert("Invalid file content");
+          }
+        };
+        reader.readAsText(file);
+        fileInput.value = "";
+      });
+
+      document.getElementById("clear").onclick = () => {
+        if (confirm("Clear all counters?")) {
+          counters.clear();
+          defaults.forEach(c => counters.set(c.id, {...c}));
+          saveLocal();
+          render();
+        }
+      };
+
+      load();
       render();
-    }
-
-    grid.addEventListener('click', (e)=>{
-      const card = e.target.closest('.card'); if(!card) return;
-      const id = card.dataset.id;
-      const actionEl = e.target.closest('[data-action]');
-      const action = actionEl?.dataset?.action;
-      if(action === 'plus1') updateValue(id, +1);
-      else if(action === 'minus1') updateValue(id, -1);
-    });
-
-    grid.addEventListener('keydown', (e)=>{
-      const card = e.target.closest('.card') || document.activeElement.closest?.('.card');
-      if(!card) return;
-      const id = card.dataset.id;
-      if(e.key === '+'){ updateValue(id, +1); e.preventDefault(); }
-      if(e.key === '-') { updateValue(id, -1); e.preventDefault(); }
-    });
-
-    // Backup
-    backupBtn.addEventListener('click', ()=>{
-      const data = Array.from(counters.values());
-      const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), counters: data }, null, 2)], {type:'application/json'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'local-counter-backup.json';
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
-    });
-
-    // Restore
-    restoreFile.addEventListener('change', async (e)=>{
-      const f = e.target.files?.[0]; if(!f) return;
-      try {
-        const text = await f.text();
-        const obj = JSON.parse(text);
-        const list = Array.isArray(obj) ? obj : (obj?.counters || []);
-        if(!Array.isArray(list)) throw new Error('Invalid file');
-        counters.clear();
-        list.forEach(o=>{
-          counters.set(o.id, { id:o.id, name:o.name, value: Math.max(1, Number(o.value)||1) });
-        });
-        save(); render();
-      } catch(err){
-        alert('Could not restore: ' + (err?.message||err));
-      } finally {
-        restoreFile.value = '';
-      }
-    });
-
-    // Clear all
-    clearAllBtn.addEventListener('click', ()=>{
-      if(confirm('This will reset all counters back to 1. Continue?')){
-        counters.clear();
-        defaults.forEach(c => counters.set(c.id, {...c}));
-        save(); render();
-      }
-    });
-
-    load();
-    render();
-  })();
+    })();
   </script>
 </body>
 </html>
