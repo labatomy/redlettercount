@@ -94,7 +94,7 @@
       function render() {
         grid.innerHTML = Array.from(counters.values()).map(c => `
           <div class="card" data-id="${c.id}">
-            <div class="name">${c.name} quoted (${c.value}) times</div>
+            <div class="name">${c.name} quoted (${c.value})</div>
             <div class="row">
               <button class="danger" data-action="reset">Reset</button>
 			  <button class="warning" data-action="minus">-1</button>
@@ -176,4 +176,3 @@
   </script>
 </body>
 </html>
-
